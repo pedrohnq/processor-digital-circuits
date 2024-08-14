@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Processador</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        button {
+            padding: 12px 24px; /* Aumenta o tamanho do botão para melhorar a acessibilidade */
+            font-size: 18px; /* Aumenta o tamanho da fonte para uma melhor legibilidade */
+            cursor: pointer;
+            background-color: #333333; /* Cor de fundo azul */
+            color: #fff; /* Cor do texto branco */
+            border: none; /* Remove a borda padrão */
+            border-radius: 5px; /* Adiciona bordas arredondadas */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Adiciona sombra para efeito de profundidade */
+            transition: background-color 0.3s, transform 0.2s; /* Adiciona uma transição suave para a cor de fundo e o efeito de transformação */
+        }
+        button:hover {
+            background-color: #222222; /* Cor de fundo mais escura quando o mouse passa sobre o botão */
+            transform: translateY(-2px); /* Leve elevação quando o botão é hoverado */
+        }
+        button:active {
+            background-color: #111111; /* Cor de fundo ainda mais escura quando o botão é clicado */
+            transform: translateY(1px); /* Diminui a elevação quando o botão é clicado */
+        }
+        .instruction-output {
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simulador de Processador</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Registrador</th>
+                    <th>Valor</th>
+                </tr>
+            </thead>
+            <tbody id="registerTable">
+                <tr><td>RF(0)</td><td id="RF0">-</td></tr>
+                <tr><td>RF(1)</td><td id="RF1">-</td></tr>
+                <tr><td>RF(2)</td><td id="RF2">-</td></tr>
+                <tr><td>RF(3)</td><td id="RF3">-</td></tr>
+                <tr><td>D(0)</td><td id="D0">-</td></tr>
+                <tr style="display: none;"><td>PC</td><td id="PC">0</td></tr>
+            </tbody>
+        </table>
+        <button onclick="executeNextInstruction()">Executar Próxima Instrução</button>
+        <div id="output" class="instruction-output"></div>
+    </div>
+
+    <script>
+        // Inicializa o estado dos registradores e da memória
+        let RF = [undefined, undefined, undefined, undefined]; // Registradores vazios
+        let D = [undefined]; // Memória com uma posição
+        let PC = 0;
+
+        // Instruções do processador
+        const instructions = [
+            { opcode: "0011", reg: 0, value: 0 },    // CONST ← RF(0) = 0
+            { opcode: "0011", reg: 1, value: 1 },    // CONST ← RF(1) = 1
+            { opcode: "0011", reg: 2, value: 0 },    // CONST ← RF(2) = 0
+            { opcode: "0011", reg: 3, value: 8 },    // CONST ← RF(3) = 8
+            { opcode: "0111", reg: 3 },               // STORE ← D(0) = RF(3)
+            { opcode: "0111", reg: 2 },               // STORE ← D(0) = RF(2)
+            { opcode: "0110", reg: 2, value: 1 },    // ADD ← RF(2) = RF(2) + RF(1)
+            { opcode: "1000", reg: 3, value: 2 },    // JMPLT ← RF(3) < RF(2), JUMP 2
+            { opcode: "1001", reg: 0, value: -3 },   // JMPZ ← RF(0) = 0, JUMP -3
+            { opcode: "0011", reg: 2, value: 255 },  // CONST ← RF(2) = 255
+            { opcode: "0111", reg: 2 }                // STORE ← D(0) = RF(2)
+        ];
+
+        function executeNextInstruction() {
+            if (PC >= instructions.length) {
+                document.getElementById('output').innerHTML = 'Todas as instruções foram executadas.';
+                return;
+            }
+
+            const inst = instructions[PC];
+            let result = '';
+            let regValue;
+
+            switch (inst.opcode) {
+                case "0011":
+                    RF[inst.reg] = inst.value;
+                    result = `Instrução ${PC}: CONST ← RF(${inst.reg}) = ${inst.value}`;
+                    PC++;
+                    break;
+                case "0111":
+                    regValue = RF[inst.reg];
+                    D[0] = regValue;
+                    result = `Instrução ${PC}: STORE ← D(0) = RF(${inst.reg}) = ${regValue}`;
+                    PC++;
+                    break;
+                case "0110":
+                    RF[inst.reg] = (RF[inst.reg] || 0) + (RF[inst.value] || 0);
+                    result = `Instrução ${PC}: ADD ← RF(${inst.reg}) = RF(${inst.reg}) + RF(${inst.value})`;
+                    PC++;
+                    break;
+                case "1000":
+                    const lessThan = (RF[3] || 0) < (RF[2] || 0);
+                    result = `Instrução ${PC}: JMPLT ← RF(3) < RF(2) (${(RF[3] || 0)} < ${(RF[2] || 0)}) = ${lessThan}`;
+                    if (lessThan) {
+                        PC += inst.value;
+                        result += `, JUMP ${inst.value}`;
+                    } else {
+                        PC++;
+                    }
+                    break;
+                case "1001":
+                    const zero = (RF[0] || 0) === 0;
+                    result = `Instrução ${PC}: JMPZ ← RF(0) = 0 (${(RF[0] || 0)} = 0) = ${zero}`;
+                    if (zero) {
+                        PC += inst.value;
+                        result += `, JUMP ${inst.value}`;
+                    } else {
+                        PC++;
+                    }
+                    break;
+                default:
+                    result = `Instrução ${PC}: Opcode desconhecido`;
+            }
+            
+            updateRegisterTable();
+            document.getElementById('output').innerHTML = result;
+        }
+
+        function updateRegisterTable() {
+            document.getElementById('RF0').textContent = RF[0] !== undefined ? RF[0] : '-';
+            document.getElementById('RF1').textContent = RF[1] !== undefined ? RF[1] : '-';
+            document.getElementById('RF2').textContent = RF[2] !== undefined ? RF[2] : '-';
+            document.getElementById('RF3').textContent = RF[3] !== undefined ? RF[3] : '-';
+            document.getElementById('D0').textContent = D[0] !== undefined ? D[0] : '-';
+            document.getElementById('PC').textContent = PC;
+        }
+    </script>
+</body>
+</html>
